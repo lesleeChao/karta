@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#23507F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Карта">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2323507F'/%3E%3Crect x='12' y='20' width='40' height='26' rx='4' fill='none' stroke='white' stroke-width='3'/%3E%3Cpath d='M12 29h40' stroke='white' stroke-width='3'/%3E%3C/svg%3E">
+<title>Карта на двоих</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ground:  #F1F3F2;
+    --surface: #FFFFFF;
+    --raised:  #FAFBFA;
+    --ink:     #15191B;
+    --muted:   #616B70;
+    --line:    #E0E5E4;
+    --accent:  #23507F;
+    --accent-ink: #FFFFFF;
+    --debt:    #A2541C;
+    --debt-bg: #FBEFE4;
+    --good:    #1B7548;
+    --good-bg: #E6F3EC;
+    --radius:  14px;
+    --shadow:  0 1px 2px rgba(20, 30, 28, .06), 0 8px 24px -16px rgba(20, 30, 28, .35);
+    color-scheme: light dark;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:  #0E1113;
+      --surface: #181C1F;
+      --raised:  #1F2427;
+      --ink:     #E7EDEF;
+      --muted:   #949FA5;
+      --line:    #272D31;
+      --accent:  #7EA3D8;
+      --accent-ink: #0E1113;
+      --debt:    #E0994F;
+      --debt-bg: #2A211A;
+      --good:    #5CC48D;
+      --good-bg: #17281F;
+      --shadow:  0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { margin: 0; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: Manrope, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 15px;
+    line-height: 1.45;
+    -webkit-text-size-adjust: 100%;
+  }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+
+  .wrap {
+    max-width: 640px;
+    margin: 0 auto;
+    padding-inline: 16px;
+    padding-block: 18px 110px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  h1 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+  .sub { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+
+  .num { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+
+  .debt-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--debt);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .debt-card.clear { border-left-color: var(--good); }
+  .debt-card .cap { font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+  .debt-card .val { font-size: 30px; font-weight: 700; letter-spacing: -.02em; color: var(--debt); }
+  .debt-card.clear .val { color: var(--good); font-size: 24px; }
+  .debt-card .hint { font-size: 12.5px; color: var(--muted); }
+
+  form.add {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .amount-row { display: flex; align-items: center; gap: 10px; }
+  .cur { font-size: 26px; color: var(--muted); font-weight: 500; }
+  input[type="text"], input[type="date"], select {
+    font-family: inherit;
+    color: var(--ink);
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 16px;
+    width: 100%;
+    min-width: 0;
+  }
+  input[type="date"] { font-variant-numeric: tabular-nums; }
+  #amount {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 30px; font-weight: 600; letter-spacing: -.02em;
+    padding: 6px 10px;
+    background: transparent;
+    border: none; border-bottom: 2px solid var(--line); border-radius: 0;
+  }
+  #amount:focus { outline: none; border-bottom-color: var(--accent); }
+  input:focus-visible, select:focus-visible, button:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  .two { display: grid; grid-template-columns: minmax(0, 150px) 1fr; gap: 10px; }
+
+  button.primary {
+    font: inherit; font-weight: 700; font-size: 16px;
+    padding: 13px; border: none; border-radius: 11px;
+    background: var(--accent); color: var(--accent-ink); cursor: pointer;
+  }
+
+  .bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .bar .spacer { flex: 1; }
+  .chipbtn {
+    font: inherit; font-size: 13px; font-weight: 600;
+    padding: 7px 12px; border-radius: 999px;
+    border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer;
+  }
+  .chipbtn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--ground); }
+
+  .month { display: flex; flex-direction: column; gap: 8px; }
+  .month h2 {
+    margin: 6px 0 0;
+    font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+    display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  }
+  .month h2 span { font-weight: 500; letter-spacing: 0; text-transform: none; }
+
+  .rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .row {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--debt);
+    border-radius: 11px;
+    padding: 9px 12px 9px 10px;
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 10px;
+  }
+  .row.done { border-left-color: var(--good); background: var(--good-bg); }
+  .row.picked { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .row .pick { width: 20px; height: 20px; accent-color: var(--accent); margin: 0; }
+  .row .meta { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .row .date { font-size: 13px; color: var(--muted); }
+  .row .note { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+  .row .sum { font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+  .row.done .sum { color: var(--good); text-decoration: line-through; text-decoration-thickness: 1.5px; }
+  .row.done .date, .row.done .note { color: var(--good); opacity: .85; }
+
+  .more {
+    font: inherit; font-size: 16px; line-height: 1;
+    width: 32px; height: 32px; display: grid; place-items: center;
+    border: 1px solid var(--line); border-radius: 9px;
+    background: var(--raised); color: var(--muted); cursor: pointer;
+  }
+  .acts { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; padding-top: 2px; }
+  .acts button {
+    font: inherit; font-size: 13px; font-weight: 600;
+    padding: 8px 12px; border-radius: 9px;
+    border: 1px solid var(--line); background: var(--raised); color: var(--ink); cursor: pointer;
+  }
+  .acts button.danger { color: var(--debt); }
+  .edit { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+  .edit .two { grid-template-columns: minmax(0, 140px) 1fr; }
+  .edit .save { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+  .bulk {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -8px 24px -18px rgba(0, 0, 0, .6);
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    z-index: 5;
+  }
+  .bulk .count { font-weight: 700; font-size: 14px; }
+  .bulk button {
+    font: inherit; font-size: 14px; font-weight: 600;
+    padding: 10px 13px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--raised); color: var(--ink); cursor: pointer;
+  }
+  .bulk button.go { background: var(--good); border-color: var(--good); color: #fff; }
+  .bulk .spacer { flex: 1; }
+
+  .empty {
+    border: 1px dashed var(--line); border-radius: var(--radius);
+    padding: 26px 18px; text-align: center; color: var(--muted); font-size: 14px;
+  }
+  .note-line { color: var(--muted); font-size: 12px; }
+  details.settings summary {
+    cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 600;
+    list-style: none; padding: 4px 0;
+  }
+  details.settings summary::-webkit-details-marker { display: none; }
+  details.settings summary::before { content: "⚙ "; }
+  .settings-body { display: flex; flex-direction: column; gap: 12px; padding-top: 10px; }
+  .settings-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .settings-row label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; min-width: 150px; }
+  .settings-row button {
+    font: inherit; font-size: 13px; font-weight: 600;
+    padding: 10px 13px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--raised); color: var(--ink); cursor: pointer;
+  }
+  .warn {
+    background: var(--debt-bg); color: var(--debt);
+    border: 1px solid var(--debt); border-radius: var(--radius);
+    padding: 12px 14px; font-size: 13px;
+  }
+  .ok { background: var(--good-bg); color: var(--good); border-color: var(--good); }
+  @media (prefers-reduced-motion: no-preference) {
+    .row { transition: background .18s ease, border-color .18s ease; }
+  }
+  @media (max-width: 420px) {
+    .two { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Карта на двоих</h1>
+    <p class="sub">Снятия с карты невесты и мои возвраты</p>
+  </header>
+
+  <div id="warn" class="warn" hidden></div>
+
+  <section class="debt-card" id="debt" aria-label="Итог"></section>
+
+  <form class="add" id="add" autocomplete="off">
+    <div class="amount-row">
+      <span class="cur" id="curSign">₽</span>
+      <input id="amount" type="text" inputmode="decimal" placeholder="0" aria-label="Сумма">
+    </div>
+    <div class="two">
+      <input id="date" type="date" aria-label="Дата снятия">
+      <input id="note" type="text" placeholder="Комментарий, например «продукты»" aria-label="Комментарий">
+    </div>
+    <button class="primary" id="submit" type="submit">Записать снятие</button>
+  </form>
+
+  <div class="bar" role="group" aria-label="Фильтр">
+    <button type="button" class="chipbtn" data-f="all" aria-pressed="true">Все</button>
+    <button type="button" class="chipbtn" data-f="open" aria-pressed="false">Не вернул</button>
+    <button type="button" class="chipbtn" data-f="done" aria-pressed="false">Вернул</button>
+    <span class="spacer"></span>
+    <button type="button" class="chipbtn" id="pickAll">Выбрать все</button>
+  </div>
+
+  <main id="list"></main>
+
+  <details class="settings">
+    <summary>Настройки и резервная копия</summary>
+    <div class="settings-body">
+      <div class="settings-row">
+        <label>Валюта
+          <select id="currency">
+            <option value="₽">₽ рубль</option>
+            <option value="₱">₱ песо</option>
+            <option value="$">$ доллар</option>
+            <option value="€">€ евро</option>
+          </select>
+        </label>
+        <button type="button" id="export">Сохранить копию</button>
+        <button type="button" id="importBtn">Загрузить копию</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
+      <p class="note-line">
+        Записи хранятся только в этом браузере и никуда не отправляются. Чтобы перенести их на другой телефон
+        или не потерять при очистке браузера, сохраняй копию файлом.
+      </p>
+    </div>
+  </details>
+</div>
+
+<div class="bulk" id="bulk" hidden>
+  <span class="count" id="bulkCount"></span>
+  <span class="spacer"></span>
+  <button type="button" id="bulkDone" class="go">Вернул</button>
+  <button type="button" id="bulkUndo">В долг</button>
+  <button type="button" id="bulkDelete">Удалить</button>
+  <button type="button" id="bulkClear">Снять</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var KEY = "karta.v1";
+
+  var state = {
+    rows: [],
+    settings: { currency: "₽" },
+    filter: "all",
+    picked: {},
+    openRow: null,
+    editRow: null
+  };
+
+  var el = {};
+  ["warn","debt","list","add","amount","date","note","submit","curSign","currency",
+   "pickAll","bulk","bulkCount","bulkDone","bulkUndo","bulkDelete","bulkClear",
+   "export","importBtn","importFile"].forEach(function (id) {
+    el[id] = document.getElementById(id);
+  });
+
+  var MONTHS = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+  var MONTHS_BIG = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+
+  /* ── хранилище ── */
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return;
+      var data = JSON.parse(raw);
+      if (data && Array.isArray(data.rows)) state.rows = data.rows.map(normalize);
+      if (data && data.settings && typeof data.settings.currency === "string") {
+        state.settings.currency = data.settings.currency;
+      }
+    } catch (e) {
+      warn("Не удалось прочитать сохранённые записи в этом браузере.");
+    }
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify({ rows: state.rows, settings: state.settings }));
+    } catch (e) {
+      warn("Браузер не дал сохранить записи. Проверь, не запрещены ли данные сайтов.");
+    }
+  }
+
+  function normalize(v) {
+    return {
+      id: typeof v.id === "string" && v.id ? v.id : newId(),
+      amount: typeof v.amount === "number" && isFinite(v.amount) ? v.amount : 0,
+      note: typeof v.note === "string" ? v.note : "",
+      at: typeof v.at === "string" ? v.at : new Date().toISOString(),
+      returned: !!v.returned,
+      returnedAt: typeof v.returnedAt === "string" ? v.returnedAt : null
+    };
+  }
+
+  function newId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  function sortRows() {
+    state.rows.sort(function (a, b) { return a.at < b.at ? 1 : a.at > b.at ? -1 : 0; });
+  }
+
+  /* ── помощники ── */
+  function money(n) {
+    var v = Math.abs(Math.round(n * 100) / 100);
+    return v.toLocaleString("ru-RU", { maximumFractionDigits: 2 }) + " " + state.settings.currency;
+  }
+
+  function parseAmount(raw) {
+    var s = String(raw || "").replace(/\s/g, "").replace(",", ".").replace(/[^\d.]/g, "");
+    var n = parseFloat(s);
+    return isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
+  }
+
+  function ymd(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
+  function isoFromInput(value, keepTimeFrom) {
+    var parts = String(value || "").split("-");
+    if (parts.length !== 3) return null;
+    var base = keepTimeFrom ? new Date(keepTimeFrom) : new Date();
+    var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]),
+                     base.getHours(), base.getMinutes(), base.getSeconds());
+    return isNaN(d.getTime()) ? null : d.toISOString();
+  }
+
+  var warnTimer = null;
+  function warn(text, good) {
+    clearTimeout(warnTimer);
+    el.warn.textContent = text || "";
+    el.warn.className = "warn" + (good ? " ok" : "");
+    el.warn.hidden = !text;
+    if (text && good) warnTimer = setTimeout(function () { el.warn.hidden = true; }, 4000);
+  }
+
+  function visibleRows() {
+    return state.rows.filter(function (r) {
+      if (state.filter === "open") return !r.returned;
+      if (state.filter === "done") return r.returned;
+      return true;
+    });
+  }
+
+  function pickedIds() {
+    return Object.keys(state.picked).filter(function (id) { return state.picked[id]; });
+  }
+
+  function byId(id) {
+    for (var i = 0; i < state.rows.length; i++) if (state.rows[i].id === id) return state.rows[i];
+    return null;
+  }
+
+  /* ── отрисовка ── */
+  function renderDebt() {
+    var open = 0, all = 0, back = 0;
+    state.rows.forEach(function (r) {
+      all += r.amount;
+      if (r.returned) back += r.amount; else open += r.amount;
+    });
+
+    el.debt.className = "debt-card" + (open > 0 ? "" : " clear");
+    el.debt.innerHTML = "";
+
+    var cap = document.createElement("div");
+    cap.className = "cap";
+    cap.textContent = "Я должен вернуть";
+    var val = document.createElement("div");
+    val.className = "val num";
+    val.textContent = open > 0 ? money(open) : (all > 0 ? "Всё вернул" : "Пока ничего");
+    var hint = document.createElement("div");
+    hint.className = "hint num";
+    hint.textContent = "снято " + money(all) + " · возвращено " + money(back);
+
+    el.debt.appendChild(cap);
+    el.debt.appendChild(val);
+    el.debt.appendChild(hint);
+  }
+
+  function renderList() {
+    el.list.innerHTML = "";
+    var rows = visibleRows();
+
+    if (!rows.length) {
+      var e = document.createElement("div");
+      e.className = "empty";
+      e.textContent = state.rows.length
+        ? "Здесь пусто — попробуй другой фильтр."
+        : "Записей пока нет. Впиши сумму сверху и нажми «Записать снятие».";
+      el.list.appendChild(e);
+      return;
+    }
+
+    var groups = [], byKey = {};
+    rows.forEach(function (r) {
+      var d = new Date(r.at);
+      var key = d.getFullYear() + "-" + d.getMonth();
+      if (!byKey[key]) {
+        byKey[key] = { label: MONTHS_BIG[d.getMonth()] + " " + d.getFullYear(), sum: 0, items: [] };
+        groups.push(byKey[key]);
+      }
+      byKey[key].items.push(r);
+      if (!r.returned) byKey[key].sum += r.amount;
+    });
+
+    groups.forEach(function (g) {
+      var sec = document.createElement("section");
+      sec.className = "month";
+      var h = document.createElement("h2");
+      h.textContent = g.label;
+      var s = document.createElement("span");
+      s.className = "num";
+      s.textContent = g.sum > 0 ? "в долгу " + money(g.sum) : "всё закрыто";
+      h.appendChild(s);
+      sec.appendChild(h);
+
+      var ul = document.createElement("ul");
+      ul.className = "rows";
+      g.items.forEach(function (r) { ul.appendChild(rowNode(r)); });
+      sec.appendChild(ul);
+      el.list.appendChild(sec);
+    });
+  }
+
+  function rowNode(r) {
+    var li = document.createElement("li");
+    li.className = "row" + (r.returned ? " done" : "") + (state.picked[r.id] ? " picked" : "");
+
+    var pick = document.createElement("input");
+    pick.type = "checkbox";
+    pick.className = "pick";
+    pick.checked = !!state.picked[r.id];
+    pick.setAttribute("aria-label", "Выбрать запись");
+    pick.addEventListener("change", function () {
+      if (pick.checked) state.picked[r.id] = true; else delete state.picked[r.id];
+      renderList();
+      renderBulk();
+    });
+    li.appendChild(pick);
+
+    if (state.editRow === r.id) {
+      li.appendChild(editBlock(r));
+      return li;
+    }
+
+    var meta = document.createElement("div");
+    meta.className = "meta";
+    var d = new Date(r.at);
+    var date = document.createElement("div");
+    date.className = "date num";
+    date.textContent = d.getDate() + " " + MONTHS[d.getMonth()] + (r.returned ? " · вернул" : "");
+    meta.appendChild(date);
+    if (r.note) {
+      var note = document.createElement("div");
+      note.className = "note";
+      note.textContent = r.note;
+      meta.appendChild(note);
+    }
+    li.appendChild(meta);
+
+    var sum = document.createElement("div");
+    sum.className = "sum num";
+    sum.textContent = money(r.amount);
+    li.appendChild(sum);
+
+    var more = document.createElement("button");
+    more.type = "button";
+    more.className = "more";
+    more.textContent = "⋯";
+    more.setAttribute("aria-label", "Действия с записью");
+    more.setAttribute("aria-expanded", String(state.openRow === r.id));
+    more.addEventListener("click", function () {
+      state.openRow = state.openRow === r.id ? null : r.id;
+      renderList();
+    });
+    li.appendChild(more);
+
+    if (state.openRow === r.id) li.appendChild(actsBlock(r));
+    return li;
+  }
+
+  function actsBlock(r) {
+    var acts = document.createElement("div");
+    acts.className = "acts";
+
+    var mark = document.createElement("button");
+    mark.type = "button";
+    mark.textContent = r.returned ? "Вернуть в долг" : "Отметить возврат";
+    mark.addEventListener("click", function () { toggle(r); });
+
+    var edit = document.createElement("button");
+    edit.type = "button";
+    edit.textContent = "Изменить";
+    edit.addEventListener("click", function () {
+      state.editRow = r.id;
+      state.openRow = null;
+      renderList();
+    });
+
+    var del = document.createElement("button");
+    del.type = "button";
+    del.className = "danger";
+    del.textContent = "Удалить";
+    var armed = false;
+    del.addEventListener("click", function () {
+      if (armed) { remove(r); return; }
+      armed = true;
+      del.textContent = "Точно удалить?";
+      setTimeout(function () { armed = false; del.textContent = "Удалить"; }, 3000);
+    });
+
+    acts.appendChild(mark);
+    acts.appendChild(edit);
+    acts.appendChild(del);
+    return acts;
+  }
+
+  function editBlock(r) {
+    var box = document.createElement("div");
+    box.className = "edit";
+
+    var amt = document.createElement("input");
+    amt.type = "text";
+    amt.inputMode = "decimal";
+    amt.value = String(r.amount);
+    amt.setAttribute("aria-label", "Сумма");
+
+    var two = document.createElement("div");
+    two.className = "two";
+    var dt = document.createElement("input");
+    dt.type = "date";
+    dt.value = ymd(new Date(r.at));
+    dt.setAttribute("aria-label", "Дата");
+    var nt = document.createElement("input");
+    nt.type = "text";
+    nt.value = r.note || "";
+    nt.placeholder = "Комментарий";
+    nt.setAttribute("aria-label", "Комментарий");
+    two.appendChild(dt);
+    two.appendChild(nt);
+
+    var acts = document.createElement("div");
+    acts.className = "acts";
+    var saveBtn = document.createElement("button");
+    saveBtn.type = "button";
+    saveBtn.className = "save";
+    saveBtn.textContent = "Сохранить";
+    saveBtn.addEventListener("click", function () {
+      var amount = parseAmount(amt.value);
+      if (!amount) { amt.focus(); return; }
+      r.amount = amount;
+      r.at = isoFromInput(dt.value, r.at) || r.at;
+      r.note = nt.value.trim().slice(0, 140);
+      state.editRow = null;
+      sortRows();
+      save();
+      renderAll();
+    });
+    var cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = "Отмена";
+    cancel.addEventListener("click", function () { state.editRow = null; renderList(); });
+    acts.appendChild(saveBtn);
+    acts.appendChild(cancel);
+
+    box.appendChild(amt);
+    box.appendChild(two);
+    box.appendChild(acts);
+    return box;
+  }
+
+  function renderBulk() {
+    var ids = pickedIds();
+    el.bulk.hidden = ids.length === 0;
+    if (!ids.length) return;
+    var sum = 0;
+    state.rows.forEach(function (r) { if (state.picked[r.id]) sum += r.amount; });
+    el.bulkCount.textContent = "Выбрано " + ids.length + " · " + money(sum);
+  }
+
+  function renderAll() {
+    el.curSign.textContent = state.settings.currency;
+    if (document.activeElement !== el.currency) el.currency.value = state.settings.currency;
+    renderDebt();
+    renderList();
+    renderBulk();
+  }
+
+  /* ── действия ── */
+  function toggle(r) {
+    r.returned = !r.returned;
+    r.returnedAt = r.returned ? new Date().toISOString() : null;
+    state.openRow = null;
+    save();
+    renderAll();
+  }
+
+  function remove(r) {
+    state.rows = state.rows.filter(function (x) { return x.id !== r.id; });
+    delete state.picked[r.id];
+    state.openRow = null;
+    save();
+    renderAll();
+  }
+
+  function bulk(action) {
+    var ids = pickedIds();
+    if (!ids.length) return;
+
+    if (action === "delete") {
+      state.rows = state.rows.filter(function (r) { return !state.picked[r.id]; });
+    } else {
+      ids.forEach(function (id) {
+        var r = byId(id);
+        if (!r) return;
+        r.returned = action === "done";
+        r.returnedAt = r.returned ? new Date().toISOString() : null;
+      });
+    }
+
+    state.picked = {};
+    save();
+    renderAll();
+  }
+
+  /* ── копия ── */
+  function exportData() {
+    var payload = JSON.stringify({ rows: state.rows, settings: state.settings, savedAt: new Date().toISOString() }, null, 2);
+    var blob = new Blob([payload], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "karta-" + ymd(new Date()) + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function importData(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var data = JSON.parse(String(reader.result));
+        if (!data || !Array.isArray(data.rows)) throw new Error("bad");
+
+        var have = {};
+        state.rows.forEach(function (r) { have[r.id] = true; });
+        var added = 0;
+        data.rows.map(normalize).forEach(function (r) {
+          if (have[r.id]) return;
+          state.rows.push(r);
+          have[r.id] = true;
+          added++;
+        });
+        if (data.settings && typeof data.settings.currency === "string") {
+          state.settings.currency = data.settings.currency;
+        }
+        sortRows();
+        save();
+        renderAll();
+        warn("Загружено записей: " + added + ". Одинаковые не дублировались.", true);
+      } catch (e) {
+        warn("Это не похоже на файл копии. Нужен файл, сохранённый этой же страницей.");
+      }
+    };
+    reader.onerror = function () { warn("Не удалось прочитать файл."); };
+    reader.readAsText(file);
+  }
+
+  /* ── события ── */
+  el.add.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var amount = parseAmount(el.amount.value);
+    if (!amount) { el.amount.focus(); return; }
+    state.rows.push({
+      id: newId(),
+      amount: amount,
+      at: isoFromInput(el.date.value, null) || new Date().toISOString(),
+      note: el.note.value.trim().slice(0, 140),
+      returned: false,
+      returnedAt: null
+    });
+    sortRows();
+    save();
+    el.amount.value = "";
+    el.note.value = "";
+    el.date.value = ymd(new Date());
+    warn("");
+    renderAll();
+    el.amount.focus();
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".bar [data-f]"), function (b) {
+    b.addEventListener("click", function () {
+      state.filter = b.dataset.f;
+      Array.prototype.forEach.call(document.querySelectorAll(".bar [data-f]"), function (x) {
+        x.setAttribute("aria-pressed", String(x === b));
+      });
+      renderList();
+    });
+  });
+
+  el.pickAll.addEventListener("click", function () {
+    var rows = visibleRows();
+    var allPicked = rows.length > 0 && rows.every(function (r) { return state.picked[r.id]; });
+    state.picked = {};
+    if (!allPicked) rows.forEach(function (r) { state.picked[r.id] = true; });
+    renderList();
+    renderBulk();
+  });
+
+  el.bulkDone.addEventListener("click", function () { bulk("done"); });
+  el.bulkUndo.addEventListener("click", function () { bulk("undo"); });
+  el.bulkClear.addEventListener("click", function () { state.picked = {}; renderList(); renderBulk(); });
+
+  var delArmed = false;
+  el.bulkDelete.addEventListener("click", function () {
+    if (delArmed) { delArmed = false; el.bulkDelete.textContent = "Удалить"; bulk("delete"); return; }
+    delArmed = true;
+    el.bulkDelete.textContent = "Точно удалить?";
+    setTimeout(function () { delArmed = false; el.bulkDelete.textContent = "Удалить"; }, 3000);
+  });
+
+  el.currency.addEventListener("change", function () {
+    state.settings.currency = el.currency.value || "₽";
+    save();
+    renderAll();
+  });
+
+  el.export.addEventListener("click", exportData);
+  el.importBtn.addEventListener("click", function () { el.importFile.click(); });
+  el.importFile.addEventListener("change", function () {
+    if (el.importFile.files && el.importFile.files[0]) importData(el.importFile.files[0]);
+    el.importFile.value = "";
+  });
+
+  /* ── старт ── */
+  el.date.value = ymd(new Date());
+  load();
+  sortRows();
+  renderAll();
+})();
+</script>
+</body>
+</html>

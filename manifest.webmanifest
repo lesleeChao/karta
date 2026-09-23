@@ -1,0 +1,19 @@
+{
+  "name": "Карта на двоих",
+  "short_name": "Карта",
+  "description": "Снятия с общей карты и возвраты",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F1F3F2",
+  "theme_color": "#23507F",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
