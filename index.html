@@ -73,8 +73,17 @@
     gap: 18px;
   }
 
+  header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   h1 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
   .sub { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+
+  .lang { display: flex; gap: 4px; flex: none; }
+  .lang button {
+    font: inherit; font-size: 12px; font-weight: 700; letter-spacing: .04em;
+    padding: 6px 9px; border-radius: 8px;
+    border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer;
+  }
+  .lang button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 
   .num { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
 
@@ -112,8 +121,27 @@
     font-size: 16px;
     width: 100%;
     min-width: 0;
+    max-width: 100%;
+    min-height: 44px;
+    line-height: 1.25;
   }
-  input[type="date"] { font-variant-numeric: tabular-nums; }
+
+  /* Safari на iPhone задаёт полю даты собственную ширину и высоту
+     и не слушает width: 100% — снимаем системное оформление. */
+  input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    font-variant-numeric: tabular-nums;
+    text-align: left;
+  }
+  input[type="date"]::-webkit-date-and-time-value {
+    text-align: left;
+    margin: 0;
+    min-height: 1.25em;
+  }
+  input[type="date"]::-webkit-datetime-edit { padding: 0; }
+  input[type="date"]::-webkit-calendar-picker-indicator { margin-inline-start: auto; }
   #amount {
     font-family: "IBM Plex Mono", ui-monospace, monospace;
     font-variant-numeric: tabular-nums;
@@ -126,7 +154,8 @@
   input:focus-visible, select:focus-visible, button:focus-visible {
     outline: 2px solid var(--accent); outline-offset: 2px;
   }
-  .two { display: grid; grid-template-columns: minmax(0, 150px) 1fr; gap: 10px; }
+  .two { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr); gap: 10px; align-items: stretch; }
+  .two > * { min-width: 0; }
 
   button.primary {
     font: inherit; font-weight: 700; font-size: 16px;
@@ -187,7 +216,7 @@
   }
   .acts button.danger { color: var(--debt); }
   .edit { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
-  .edit .two { grid-template-columns: minmax(0, 140px) 1fr; }
+  .edit .two { grid-template-columns: minmax(0, 140px) minmax(0, 1fr); }
   .edit .save { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 
   .bulk {
@@ -237,7 +266,7 @@
     .row { transition: background .18s ease, border-color .18s ease; }
   }
   @media (max-width: 420px) {
-    .two { grid-template-columns: 1fr; }
+    .two, .edit .two { grid-template-columns: minmax(0, 1fr); }
   }
 </style>
 </head>
@@ -245,8 +274,14 @@
 
 <div class="wrap">
   <header>
-    <h1>Карта на двоих</h1>
-    <p class="sub">Снятия с карты невесты и мои возвраты</p>
+    <div>
+      <h1 id="h1">Карта на двоих</h1>
+      <p class="sub" id="sub">Снятия с карты невесты и мои возвраты</p>
+    </div>
+    <div class="lang" role="group" aria-label="Язык / Language">
+      <button type="button" data-lang="ru" aria-pressed="true">RU</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
   </header>
 
   <div id="warn" class="warn" hidden></div>
@@ -256,11 +291,11 @@
   <form class="add" id="add" autocomplete="off">
     <div class="amount-row">
       <span class="cur" id="curSign">₽</span>
-      <input id="amount" type="text" inputmode="decimal" placeholder="0" aria-label="Сумма">
+      <input id="amount" type="text" inputmode="decimal" placeholder="0">
     </div>
     <div class="two">
-      <input id="date" type="date" aria-label="Дата снятия">
-      <input id="note" type="text" placeholder="Комментарий, например «продукты»" aria-label="Комментарий">
+      <input id="date" type="date">
+      <input id="note" type="text">
     </div>
     <button class="primary" id="submit" type="submit">Записать снятие</button>
   </form>
@@ -276,25 +311,22 @@
   <main id="list"></main>
 
   <details class="settings">
-    <summary>Настройки и резервная копия</summary>
+    <summary id="settingsSummary">Настройки и резервная копия</summary>
     <div class="settings-body">
       <div class="settings-row">
-        <label>Валюта
+        <label><span id="currencyLabel">Валюта</span>
           <select id="currency">
-            <option value="₽">₽ рубль</option>
-            <option value="₱">₱ песо</option>
-            <option value="$">$ доллар</option>
-            <option value="€">€ евро</option>
+            <option value="₽">₽</option>
+            <option value="₱">₱</option>
+            <option value="$">$</option>
+            <option value="€">€</option>
           </select>
         </label>
         <button type="button" id="export">Сохранить копию</button>
         <button type="button" id="importBtn">Загрузить копию</button>
         <input type="file" id="importFile" accept="application/json,.json" hidden>
       </div>
-      <p class="note-line">
-        Записи хранятся только в этом браузере и никуда не отправляются. Чтобы перенести их на другой телефон
-        или не потерять при очистке браузера, сохраняй копию файлом.
-      </p>
+      <p class="note-line" id="storageNote"></p>
     </div>
   </details>
 </div>
@@ -314,24 +346,117 @@
 
   var KEY = "karta.v1";
 
+  /* ── переводы ── */
+  var DICT = {
+    ru: {
+      locale: "ru-RU",
+      title: "Карта на двоих",
+      sub: "Снятия с карты невесты и мои возвраты",
+      debtCap: "Я должен вернуть",
+      allBack: "Всё вернул",
+      nothingYet: "Пока ничего",
+      totals: function (all, back) { return "снято " + all + " · возвращено " + back; },
+      amountAria: "Сумма",
+      dateAria: "Дата снятия",
+      noteAria: "Комментарий",
+      notePlaceholder: "Комментарий, например «продукты»",
+      submit: "Записать снятие",
+      fAll: "Все", fOpen: "Не вернул", fDone: "Вернул",
+      pickAll: "Выбрать все", pickNone: "Снять выбор",
+      monthDebt: function (s) { return "в долгу " + s; },
+      monthClear: "всё закрыто",
+      returnedMark: " · вернул",
+      pickAria: "Выбрать запись",
+      moreAria: "Действия с записью",
+      markReturn: "Отметить возврат",
+      markUndo: "Вернуть в долг",
+      edit: "Изменить",
+      del: "Удалить",
+      delSure: "Точно удалить?",
+      save: "Сохранить",
+      cancel: "Отмена",
+      emptyAll: "Записей пока нет. Впиши сумму сверху и нажми «Записать снятие».",
+      emptyFilter: "Здесь пусто — попробуй другой фильтр.",
+      settings: "Настройки и резервная копия",
+      currency: "Валюта",
+      exportBtn: "Сохранить копию",
+      importBtn: "Загрузить копию",
+      storageNote: "Записи хранятся только в этом браузере и никуда не отправляются. Чтобы перенести их на другой телефон или не потерять при очистке браузера, сохраняй копию файлом.",
+      bulkCount: function (n, s) { return "Выбрано " + n + " · " + s; },
+      bulkDone: "Вернул", bulkUndo: "В долг", bulkDelete: "Удалить", bulkClear: "Снять",
+      imported: function (n) { return "Загружено записей: " + n + ". Одинаковые не дублировались."; },
+      importBad: "Это не похоже на файл копии. Нужен файл, сохранённый этой же страницей.",
+      readFail: "Не удалось прочитать файл.",
+      loadFail: "Не удалось прочитать сохранённые записи в этом браузере.",
+      saveFail: "Браузер не дал сохранить записи. Проверь, не запрещены ли данные сайтов.",
+      months: ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"],
+      monthsBig: ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"],
+      day: function (d, m) { return d + " " + m; }
+    },
+    en: {
+      locale: "en-US",
+      title: "Our shared card",
+      sub: "What I took from her card and paid back",
+      debtCap: "I still owe",
+      allBack: "All paid back",
+      nothingYet: "Nothing yet",
+      totals: function (all, back) { return "taken " + all + " · paid back " + back; },
+      amountAria: "Amount",
+      dateAria: "Date",
+      noteAria: "Note",
+      notePlaceholder: "Note, e.g. “groceries”",
+      submit: "Add withdrawal",
+      fAll: "All", fOpen: "Open", fDone: "Paid back",
+      pickAll: "Select all", pickNone: "Clear selection",
+      monthDebt: function (s) { return "open " + s; },
+      monthClear: "all settled",
+      returnedMark: " · paid back",
+      pickAria: "Select entry",
+      moreAria: "Entry actions",
+      markReturn: "Mark as paid back",
+      markUndo: "Move back to open",
+      edit: "Edit",
+      del: "Delete",
+      delSure: "Delete for sure?",
+      save: "Save",
+      cancel: "Cancel",
+      emptyAll: "No entries yet. Type an amount above and tap “Add withdrawal”.",
+      emptyFilter: "Nothing here — try another filter.",
+      settings: "Settings and backup",
+      currency: "Currency",
+      exportBtn: "Save a backup",
+      importBtn: "Load a backup",
+      storageNote: "Entries stay in this browser only and are never sent anywhere. Save a backup file to move them to another phone or to keep them if the browser data is cleared.",
+      bulkCount: function (n, s) { return "Selected " + n + " · " + s; },
+      bulkDone: "Paid back", bulkUndo: "Open", bulkDelete: "Delete", bulkClear: "Clear",
+      imported: function (n) { return "Entries loaded: " + n + ". Duplicates were skipped."; },
+      importBad: "That does not look like a backup file. Use a file saved by this page.",
+      readFail: "Could not read the file.",
+      loadFail: "Could not read the entries saved in this browser.",
+      saveFail: "The browser refused to save. Check whether site data is blocked.",
+      months: ["January","February","March","April","May","June","July","August","September","October","November","December"],
+      monthsBig: ["January","February","March","April","May","June","July","August","September","October","November","December"],
+      day: function (d, m) { return m + " " + d; }
+    }
+  };
+
   var state = {
     rows: [],
-    settings: { currency: "₽" },
+    settings: { currency: "₽", lang: (navigator.language || "ru").toLowerCase().indexOf("ru") === 0 ? "ru" : "en" },
     filter: "all",
     picked: {},
     openRow: null,
     editRow: null
   };
 
+  function t() { return DICT[state.settings.lang] || DICT.ru; }
+
   var el = {};
   ["warn","debt","list","add","amount","date","note","submit","curSign","currency",
    "pickAll","bulk","bulkCount","bulkDone","bulkUndo","bulkDelete","bulkClear",
-   "export","importBtn","importFile"].forEach(function (id) {
+   "export","importBtn","importFile","h1","sub","settingsSummary","currencyLabel","storageNote"].forEach(function (id) {
     el[id] = document.getElementById(id);
   });
-
-  var MONTHS = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
-  var MONTHS_BIG = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
 
   /* ── хранилище ── */
   function load() {
@@ -340,11 +465,12 @@
       if (!raw) return;
       var data = JSON.parse(raw);
       if (data && Array.isArray(data.rows)) state.rows = data.rows.map(normalize);
-      if (data && data.settings && typeof data.settings.currency === "string") {
-        state.settings.currency = data.settings.currency;
+      if (data && data.settings) {
+        if (typeof data.settings.currency === "string") state.settings.currency = data.settings.currency;
+        if (data.settings.lang === "ru" || data.settings.lang === "en") state.settings.lang = data.settings.lang;
       }
     } catch (e) {
-      warn("Не удалось прочитать сохранённые записи в этом браузере.");
+      warn(t().loadFail);
     }
   }
 
@@ -352,7 +478,7 @@
     try {
       localStorage.setItem(KEY, JSON.stringify({ rows: state.rows, settings: state.settings }));
     } catch (e) {
-      warn("Браузер не дал сохранить записи. Проверь, не запрещены ли данные сайтов.");
+      warn(t().saveFail);
     }
   }
 
@@ -378,7 +504,7 @@
   /* ── помощники ── */
   function money(n) {
     var v = Math.abs(Math.round(n * 100) / 100);
-    return v.toLocaleString("ru-RU", { maximumFractionDigits: 2 }) + " " + state.settings.currency;
+    return v.toLocaleString(t().locale, { maximumFractionDigits: 2 }) + " " + state.settings.currency;
   }
 
   function parseAmount(raw) {
@@ -426,8 +552,48 @@
     return null;
   }
 
+  /* ── статичные надписи ── */
+  function applyLang() {
+    var L = t();
+    document.documentElement.lang = state.settings.lang;
+    document.title = L.title;
+    el.h1.textContent = L.title;
+    el.sub.textContent = L.sub;
+
+    el.amount.setAttribute("aria-label", L.amountAria);
+    el.date.setAttribute("aria-label", L.dateAria);
+    el.note.setAttribute("aria-label", L.noteAria);
+    el.note.placeholder = L.notePlaceholder;
+    el.submit.textContent = L.submit;
+
+    var names = { all: L.fAll, open: L.fOpen, done: L.fDone };
+    Array.prototype.forEach.call(document.querySelectorAll(".bar [data-f]"), function (b) {
+      b.textContent = names[b.dataset.f];
+    });
+
+    var rows = visibleRows();
+    var allPicked = rows.length > 0 && rows.every(function (r) { return state.picked[r.id]; });
+    el.pickAll.textContent = allPicked ? L.pickNone : L.pickAll;
+
+    el.settingsSummary.textContent = L.settings;
+    el.currencyLabel.textContent = L.currency;
+    el.export.textContent = L.exportBtn;
+    el.importBtn.textContent = L.importBtn;
+    el.storageNote.textContent = L.storageNote;
+
+    el.bulkDone.textContent = L.bulkDone;
+    el.bulkUndo.textContent = L.bulkUndo;
+    el.bulkDelete.textContent = L.bulkDelete;
+    el.bulkClear.textContent = L.bulkClear;
+
+    Array.prototype.forEach.call(document.querySelectorAll(".lang [data-lang]"), function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.lang === state.settings.lang));
+    });
+  }
+
   /* ── отрисовка ── */
   function renderDebt() {
+    var L = t();
     var open = 0, all = 0, back = 0;
     state.rows.forEach(function (r) {
       all += r.amount;
@@ -439,13 +605,13 @@
 
     var cap = document.createElement("div");
     cap.className = "cap";
-    cap.textContent = "Я должен вернуть";
+    cap.textContent = L.debtCap;
     var val = document.createElement("div");
     val.className = "val num";
-    val.textContent = open > 0 ? money(open) : (all > 0 ? "Всё вернул" : "Пока ничего");
+    val.textContent = open > 0 ? money(open) : (all > 0 ? L.allBack : L.nothingYet);
     var hint = document.createElement("div");
     hint.className = "hint num";
-    hint.textContent = "снято " + money(all) + " · возвращено " + money(back);
+    hint.textContent = L.totals(money(all), money(back));
 
     el.debt.appendChild(cap);
     el.debt.appendChild(val);
@@ -453,15 +619,14 @@
   }
 
   function renderList() {
+    var L = t();
     el.list.innerHTML = "";
     var rows = visibleRows();
 
     if (!rows.length) {
       var e = document.createElement("div");
       e.className = "empty";
-      e.textContent = state.rows.length
-        ? "Здесь пусто — попробуй другой фильтр."
-        : "Записей пока нет. Впиши сумму сверху и нажми «Записать снятие».";
+      e.textContent = state.rows.length ? L.emptyFilter : L.emptyAll;
       el.list.appendChild(e);
       return;
     }
@@ -471,7 +636,7 @@
       var d = new Date(r.at);
       var key = d.getFullYear() + "-" + d.getMonth();
       if (!byKey[key]) {
-        byKey[key] = { label: MONTHS_BIG[d.getMonth()] + " " + d.getFullYear(), sum: 0, items: [] };
+        byKey[key] = { label: L.monthsBig[d.getMonth()] + " " + d.getFullYear(), sum: 0, items: [] };
         groups.push(byKey[key]);
       }
       byKey[key].items.push(r);
@@ -485,7 +650,7 @@
       h.textContent = g.label;
       var s = document.createElement("span");
       s.className = "num";
-      s.textContent = g.sum > 0 ? "в долгу " + money(g.sum) : "всё закрыто";
+      s.textContent = g.sum > 0 ? L.monthDebt(money(g.sum)) : L.monthClear;
       h.appendChild(s);
       sec.appendChild(h);
 
@@ -498,6 +663,7 @@
   }
 
   function rowNode(r) {
+    var L = t();
     var li = document.createElement("li");
     li.className = "row" + (r.returned ? " done" : "") + (state.picked[r.id] ? " picked" : "");
 
@@ -505,11 +671,12 @@
     pick.type = "checkbox";
     pick.className = "pick";
     pick.checked = !!state.picked[r.id];
-    pick.setAttribute("aria-label", "Выбрать запись");
+    pick.setAttribute("aria-label", L.pickAria);
     pick.addEventListener("change", function () {
       if (pick.checked) state.picked[r.id] = true; else delete state.picked[r.id];
       renderList();
       renderBulk();
+      applyLang();
     });
     li.appendChild(pick);
 
@@ -523,7 +690,7 @@
     var d = new Date(r.at);
     var date = document.createElement("div");
     date.className = "date num";
-    date.textContent = d.getDate() + " " + MONTHS[d.getMonth()] + (r.returned ? " · вернул" : "");
+    date.textContent = L.day(d.getDate(), L.months[d.getMonth()]) + (r.returned ? L.returnedMark : "");
     meta.appendChild(date);
     if (r.note) {
       var note = document.createElement("div");
@@ -542,7 +709,7 @@
     more.type = "button";
     more.className = "more";
     more.textContent = "⋯";
-    more.setAttribute("aria-label", "Действия с записью");
+    more.setAttribute("aria-label", L.moreAria);
     more.setAttribute("aria-expanded", String(state.openRow === r.id));
     more.addEventListener("click", function () {
       state.openRow = state.openRow === r.id ? null : r.id;
@@ -555,17 +722,18 @@
   }
 
   function actsBlock(r) {
+    var L = t();
     var acts = document.createElement("div");
     acts.className = "acts";
 
     var mark = document.createElement("button");
     mark.type = "button";
-    mark.textContent = r.returned ? "Вернуть в долг" : "Отметить возврат";
+    mark.textContent = r.returned ? L.markUndo : L.markReturn;
     mark.addEventListener("click", function () { toggle(r); });
 
     var edit = document.createElement("button");
     edit.type = "button";
-    edit.textContent = "Изменить";
+    edit.textContent = L.edit;
     edit.addEventListener("click", function () {
       state.editRow = r.id;
       state.openRow = null;
@@ -575,13 +743,13 @@
     var del = document.createElement("button");
     del.type = "button";
     del.className = "danger";
-    del.textContent = "Удалить";
+    del.textContent = L.del;
     var armed = false;
     del.addEventListener("click", function () {
       if (armed) { remove(r); return; }
       armed = true;
-      del.textContent = "Точно удалить?";
-      setTimeout(function () { armed = false; del.textContent = "Удалить"; }, 3000);
+      del.textContent = L.delSure;
+      setTimeout(function () { armed = false; del.textContent = L.del; }, 3000);
     });
 
     acts.appendChild(mark);
@@ -591,6 +759,7 @@
   }
 
   function editBlock(r) {
+    var L = t();
     var box = document.createElement("div");
     box.className = "edit";
 
@@ -598,19 +767,19 @@
     amt.type = "text";
     amt.inputMode = "decimal";
     amt.value = String(r.amount);
-    amt.setAttribute("aria-label", "Сумма");
+    amt.setAttribute("aria-label", L.amountAria);
 
     var two = document.createElement("div");
     two.className = "two";
     var dt = document.createElement("input");
     dt.type = "date";
     dt.value = ymd(new Date(r.at));
-    dt.setAttribute("aria-label", "Дата");
+    dt.setAttribute("aria-label", L.dateAria);
     var nt = document.createElement("input");
     nt.type = "text";
     nt.value = r.note || "";
-    nt.placeholder = "Комментарий";
-    nt.setAttribute("aria-label", "Комментарий");
+    nt.placeholder = L.notePlaceholder;
+    nt.setAttribute("aria-label", L.noteAria);
     two.appendChild(dt);
     two.appendChild(nt);
 
@@ -619,7 +788,7 @@
     var saveBtn = document.createElement("button");
     saveBtn.type = "button";
     saveBtn.className = "save";
-    saveBtn.textContent = "Сохранить";
+    saveBtn.textContent = L.save;
     saveBtn.addEventListener("click", function () {
       var amount = parseAmount(amt.value);
       if (!amount) { amt.focus(); return; }
@@ -633,7 +802,7 @@
     });
     var cancel = document.createElement("button");
     cancel.type = "button";
-    cancel.textContent = "Отмена";
+    cancel.textContent = L.cancel;
     cancel.addEventListener("click", function () { state.editRow = null; renderList(); });
     acts.appendChild(saveBtn);
     acts.appendChild(cancel);
@@ -650,12 +819,13 @@
     if (!ids.length) return;
     var sum = 0;
     state.rows.forEach(function (r) { if (state.picked[r.id]) sum += r.amount; });
-    el.bulkCount.textContent = "Выбрано " + ids.length + " · " + money(sum);
+    el.bulkCount.textContent = t().bulkCount(ids.length, money(sum));
   }
 
   function renderAll() {
     el.curSign.textContent = state.settings.currency;
     if (document.activeElement !== el.currency) el.currency.value = state.settings.currency;
+    applyLang();
     renderDebt();
     renderList();
     renderBulk();
@@ -734,12 +904,12 @@
         sortRows();
         save();
         renderAll();
-        warn("Загружено записей: " + added + ". Одинаковые не дублировались.", true);
+        warn(t().imported(added), true);
       } catch (e) {
-        warn("Это не похоже на файл копии. Нужен файл, сохранённый этой же страницей.");
+        warn(t().importBad);
       }
     };
-    reader.onerror = function () { warn("Не удалось прочитать файл."); };
+    reader.onerror = function () { warn(t().readFail); };
     reader.readAsText(file);
   }
 
@@ -773,6 +943,15 @@
         x.setAttribute("aria-pressed", String(x === b));
       });
       renderList();
+      applyLang();
+    });
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".lang [data-lang]"), function (b) {
+    b.addEventListener("click", function () {
+      state.settings.lang = b.dataset.lang;
+      save();
+      renderAll();
     });
   });
 
@@ -783,18 +962,19 @@
     if (!allPicked) rows.forEach(function (r) { state.picked[r.id] = true; });
     renderList();
     renderBulk();
+    applyLang();
   });
 
   el.bulkDone.addEventListener("click", function () { bulk("done"); });
   el.bulkUndo.addEventListener("click", function () { bulk("undo"); });
-  el.bulkClear.addEventListener("click", function () { state.picked = {}; renderList(); renderBulk(); });
+  el.bulkClear.addEventListener("click", function () { state.picked = {}; renderList(); renderBulk(); applyLang(); });
 
   var delArmed = false;
   el.bulkDelete.addEventListener("click", function () {
-    if (delArmed) { delArmed = false; el.bulkDelete.textContent = "Удалить"; bulk("delete"); return; }
+    if (delArmed) { delArmed = false; el.bulkDelete.textContent = t().bulkDelete; bulk("delete"); return; }
     delArmed = true;
-    el.bulkDelete.textContent = "Точно удалить?";
-    setTimeout(function () { delArmed = false; el.bulkDelete.textContent = "Удалить"; }, 3000);
+    el.bulkDelete.textContent = t().delSure;
+    setTimeout(function () { delArmed = false; el.bulkDelete.textContent = t().bulkDelete; }, 3000);
   });
 
   el.currency.addEventListener("change", function () {
@@ -811,8 +991,8 @@
   });
 
   /* ── старт ── */
-  el.date.value = ymd(new Date());
   load();
+  el.date.value = ymd(new Date());
   sortRows();
   renderAll();
 })();
